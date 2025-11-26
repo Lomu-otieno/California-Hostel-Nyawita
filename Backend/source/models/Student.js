@@ -2,16 +2,29 @@ import mongoose from "mongoose";
 import Room from "./Room.js";
 const studentSchema = new mongoose.Schema(
   {
-    studentId: { type: String, required: true, unique: true },
+    studentId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       unique: true,
     },
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-    phone: { type: String, unique: true, sparse: true },
+    name: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    phone: {
+      type: String,
+      sparse: true,
+    },
     emergencyContact: {
       name: String,
       phone: String,
@@ -29,7 +42,6 @@ const studentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 // Add method to Student model
 studentSchema.methods.assignRoom = async function (roomId) {
   const room = await Room.findById(roomId);

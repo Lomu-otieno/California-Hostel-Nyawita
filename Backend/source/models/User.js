@@ -28,31 +28,32 @@ userSchema.methods.correctPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Create Student profile automatically if role is "student"
+// Enhanced post-save hook
 userSchema.post("save", async function (doc, next) {
   try {
-    if (doc.role === "student") {
-      const exists = await Student.findOne({ user: doc._id });
-      if (!exists) {
-        await Student.create({
-          studentId: `STD-${doc._id.toString().slice(-6).toUpperCase()}`,
-          user: doc._id,
-          name: doc.name,
-          email: doc.email,
-          phone: "",
-          emergencyContact: {
-            name: "",
-            phone: "",
-            relationship: "",
-          },
-          status: "active",
-        });
-      }
-    }
+    if (doc.role !== "student") return next();
+
+    // Lazy import to avoid circular dependency
+    const Student = (await import("./Student.js")).default;
+
+    const exists = await Student.findOne({ user: doc._id });
+    if (exists) return next();
+
+    const studentId = `STU${Date.now().toString().slice(-6)}`;
+
+    await Student.create({
+      studentId,
+      user: doc._id,
+      name: doc.name,
+      email: doc.email,
+      status: "active",
+    });
+
+    console.log("Student created for:", doc.email);
     next();
-  } catch (error) {
-    console.error("Error creating student profile:", error);
-    next(error);
+  } catch (err) {
+    console.error("Student auto-create failed:", err);
+    next();
   }
 });
 

@@ -45,17 +45,32 @@ student_router.get("/:id", protect, async (req, res) => {
   }
 });
 
-// Create student (student creating their own record)
+// Remove the POST /students route or keep it for additional profile setup
 student_router.post("/", protect, async (req, res) => {
   try {
-    // make sure only students can create their own profile
-    if (req.user.role !== "student") {
-      return res
-        .status(403)
-        .json({ message: "Only students can create profiles" });
+    // Check if student profile already exists
+    const existingStudent = await Student.findOne({ user: req.user._id });
+
+    if (existingStudent) {
+      return res.status(400).json({
+        message: "Student profile already exists. Use update instead.",
+      });
     }
 
-    const student = await Student.create({ ...req.body, user: req.user._id });
+    // Only allow students to create profiles
+    if (req.user.role !== "student") {
+      return res.status(403).json({
+        message: "Only students can create profiles",
+      });
+    }
+
+    const student = await Student.create({
+      ...req.body,
+      user: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+    });
+
     const populatedStudent = await Student.findById(student._id)
       .populate("user", "name email")
       .populate("room");

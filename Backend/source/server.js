@@ -17,16 +17,16 @@ import authRoute from "./routes/auth.js";
 import bookingRoutes from "./routes/bookings.js";
 import studentRoutes from "./routes/students.js";
 import roomRoutes from "./routes/rooms.js";
+import reviewRoutes from "./routes/review.js";
 // import paymentsRoute from "./routes/payments.js";
-// import maintenanceRoute from "./routes/maintenance.js";
 
 // Use routes
 app.use("/api/auth", authRoute);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/rooms", roomRoutes);
+app.use("/api/reviews", reviewRoutes);
 // app.use("/api/payments", paymentsRoute);
-// app.use("/api/maintenance", maintenanceRoute);
 
 // Basic route
 app.get("/", (req, res) => {

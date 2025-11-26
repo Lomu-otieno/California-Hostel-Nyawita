@@ -27,39 +27,6 @@ router.post("/register", async (req, res) => {
       password,
       role,
     });
-
-    // Student profile will be automatically created by the post-save hook
-    if (user) {
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        token: generateToken(user._id),
-      });
-    }
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-// Login
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-
-    if (user && (await user.correctPassword(password))) {
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: "Invalid email or password" });
-    }
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

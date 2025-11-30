@@ -27,6 +27,14 @@ router.post("/register", async (req, res) => {
       password,
       role,
     });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user._id),
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

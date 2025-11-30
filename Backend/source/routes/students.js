@@ -1,7 +1,6 @@
 import express from "express";
 import Student from "../models/Student.js";
 import { protect, warden } from "../middleware/auth.js";
-import bcrypt from "bcryptjs";
 
 const student_router = express.Router();
 
@@ -44,103 +43,88 @@ student_router.get("/:id", protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+//Only allow students to update their own profile by ID
 student_router.put("/:id", protect, async (req, res) => {
   try {
-    const isSelf = req.user._id.toString() === req.params.id;
-    const isAdminOrWarden =
-      req.user.role === "admin" || req.user.role === "warden";
-
-    // If not self and not admin/warden → reject
-    if (!isSelf && !isAdminOrWarden) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update this student" });
+    // Only students can update profiles
+    if (req.user.role !== "student") {
+      return res.status(403).json({
+        message: "Only students can update their profile",
+      });
     }
 
-    // If it's the student updating themselves
-    if (isSelf && req.user.role === "student") {
-      let student = await Student.findOne({ user: req.user._id });
+    // Find the student profile for the current user
+    let student = await Student.findOne({ user: req.user._id });
 
-      // If student profile doesn't exist, create it
-      if (!student) {
-        // Generate unique student ID
-        const studentCount = await Student.countDocuments();
-        const studentId = `STU${(studentCount + 1)
-          .toString()
-          .padStart(4, "0")}`;
+    // If student profile doesn't exist, create it
+    if (!student) {
+      // Generate unique student ID
+      const studentCount = await Student.countDocuments();
+      const studentId = `STU${(studentCount + 1).toString().padStart(4, "0")}`;
 
-        student = await Student.create({
-          studentId: studentId,
-          user: req.user._id,
-          name: req.user.name,
-          email: req.user.email,
-          phone: req.body.phone || "",
-          emergencyContact: req.body.emergencyContact || {
-            name: "",
-            phone: "",
-            relationship: "",
-          },
-          status: "active",
-        });
-
-        const populatedStudent = await Student.findById(student._id)
-          .populate("user", "name email")
-          .populate("room");
-
-        return res.status(201).json({
-          message: "Student profile created successfully",
-          data: populatedStudent,
-        });
-      }
-
-      // If student profile exists, update allowed fields
-      const allowedFields = ["phone", "emergencyContact"];
-      const updateData = {};
-
-      allowedFields.forEach((field) => {
-        if (req.body[field] !== undefined) {
-          updateData[field] = req.body[field];
-        }
+      student = await Student.create({
+        studentId: studentId,
+        user: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.body.phone || "",
+        emergencyContact: req.body.emergencyContact || {
+          name: "",
+          phone: "",
+          relationship: "",
+        },
+        status: "active",
       });
 
-      const updatedStudent = await Student.findByIdAndUpdate(
-        student._id,
-        updateData,
-        {
-          new: true,
-          runValidators: true,
-        }
-      )
+      const populatedStudent = await Student.findById(student._id)
         .populate("user", "name email")
         .populate("room");
 
-      return res.json({
-        message: "Student profile updated successfully",
-        data: updatedStudent,
+      return res.status(201).json({
+        message: "Student profile created successfully",
+        data: populatedStudent,
       });
     }
 
-    // Admin/Warden update logic (existing code)
-    if (isAdminOrWarden) {
-      const student = await Student.findByIdAndUpdate(req.params.id, req.body, {
+    // ✅ FIX: Check if the requested student ID matches the user's student profile ID
+    if (student._id.toString() !== req.params.id) {
+      return res.status(403).json({
+        message: "Not authorized to update this student profile",
+      });
+    }
+
+    // If student profile exists, update allowed fields
+    const allowedFields = ["phone", "emergencyContact"];
+    const updateData = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
+    const updatedStudent = await Student.findByIdAndUpdate(
+      student._id,
+      updateData,
+      {
         new: true,
         runValidators: true,
-      })
-        .populate("user", "name email")
-        .populate("room");
-
-      if (!student) {
-        return res.status(404).json({ message: "Student not found" });
       }
+    )
+      .populate("user", "name email")
+      .populate("room");
 
-      return res.json(student);
-    }
+    return res.json({
+      message: "Student profile updated successfully",
+      data: updatedStudent,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-// endpoint for student to update their own profile by user ID
+//Only students can update their own profile via this endpoint
 student_router.put("/profile/me", protect, async (req, res) => {
   try {
     // Only students can update their own profile
@@ -205,6 +189,36 @@ student_router.put("/profile/me", protect, async (req, res) => {
 
     res.json({
       message: "Student profile updated successfully",
+      data: updatedStudent,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+//Admin/Warden can only assign rooms (not update profile)
+student_router.patch("/:id/assign-room", protect, warden, async (req, res) => {
+  try {
+    const { roomId } = req.body;
+
+    if (!roomId) {
+      return res.status(400).json({ message: "Room ID is required" });
+    }
+
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Use the assignRoom method from the Student model
+    await student.assignRoom(roomId);
+
+    const updatedStudent = await Student.findById(student._id)
+      .populate("user", "name email")
+      .populate("room");
+
+    res.json({
+      message: "Room assigned successfully",
       data: updatedStudent,
     });
   } catch (error) {

@@ -44,63 +44,11 @@ student_router.get("/:id", protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-// Remove the POST /students route or keep it for additional profile setup
-student_router.post("/", protect, async (req, res) => {
-  try {
-    // Check if student profile already exists
-    const existingStudent = await Student.findOne({ user: req.user._id });
-
-    if (existingStudent) {
-      return res.status(400).json({
-        message: "Student profile already exists. Use update instead.",
-      });
-    }
-
-    // Only allow students to create profiles
-    if (req.user.role !== "student") {
-      return res.status(403).json({
-        message: "Only students can create profiles",
-      });
-    }
-
-    const student = await Student.create({
-      ...req.body,
-      user: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-    });
-
-    const populatedStudent = await Student.findById(student._id)
-      .populate("user", "name email")
-      .populate("room");
-
-    res.status(201).json(populatedStudent);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-// Update student (Admin/Warden: all fields, Student: only password)
 student_router.put("/:id", protect, async (req, res) => {
   try {
     const isSelf = req.user._id.toString() === req.params.id;
     const isAdminOrWarden =
       req.user.role === "admin" || req.user.role === "warden";
-
-    // If it's the student updating themselves → only allow password
-    if (isSelf && req.user.role === "student") {
-      if (!req.body.password) {
-        return res
-          .status(400)
-          .json({ message: "Password is required to update" });
-      }
-
-      // Hash new password before saving
-      const hashedPassword = await bcrypt.hash(req.body.password, 10);
-
-      req.body = { password: hashedPassword }; // overwrite body with only password
-    }
 
     // If not self and not admin/warden → reject
     if (!isSelf && !isAdminOrWarden) {
@@ -109,18 +57,156 @@ student_router.put("/:id", protect, async (req, res) => {
         .json({ message: "Not authorized to update this student" });
     }
 
-    const student = await Student.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    })
+    // If it's the student updating themselves
+    if (isSelf && req.user.role === "student") {
+      let student = await Student.findOne({ user: req.user._id });
+
+      // If student profile doesn't exist, create it
+      if (!student) {
+        // Generate unique student ID
+        const studentCount = await Student.countDocuments();
+        const studentId = `STU${(studentCount + 1)
+          .toString()
+          .padStart(4, "0")}`;
+
+        student = await Student.create({
+          studentId: studentId,
+          user: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          phone: req.body.phone || "",
+          emergencyContact: req.body.emergencyContact || {
+            name: "",
+            phone: "",
+            relationship: "",
+          },
+          status: "active",
+        });
+
+        const populatedStudent = await Student.findById(student._id)
+          .populate("user", "name email")
+          .populate("room");
+
+        return res.status(201).json({
+          message: "Student profile created successfully",
+          data: populatedStudent,
+        });
+      }
+
+      // If student profile exists, update allowed fields
+      const allowedFields = ["phone", "emergencyContact"];
+      const updateData = {};
+
+      allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      });
+
+      const updatedStudent = await Student.findByIdAndUpdate(
+        student._id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      )
+        .populate("user", "name email")
+        .populate("room");
+
+      return res.json({
+        message: "Student profile updated successfully",
+        data: updatedStudent,
+      });
+    }
+
+    // Admin/Warden update logic (existing code)
+    if (isAdminOrWarden) {
+      const student = await Student.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true,
+      })
+        .populate("user", "name email")
+        .populate("room");
+
+      if (!student) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      return res.json(student);
+    }
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// endpoint for student to update their own profile by user ID
+student_router.put("/profile/me", protect, async (req, res) => {
+  try {
+    // Only students can update their own profile
+    if (req.user.role !== "student") {
+      return res.status(403).json({
+        message: "Only students can update their profile",
+      });
+    }
+
+    let student = await Student.findOne({ user: req.user._id });
+
+    // If student profile doesn't exist, create it
+    if (!student) {
+      // Generate unique student ID
+      const studentCount = await Student.countDocuments();
+      const studentId = `STU${(studentCount + 1).toString().padStart(4, "0")}`;
+
+      student = await Student.create({
+        studentId: studentId,
+        user: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.body.phone || "",
+        emergencyContact: req.body.emergencyContact || {
+          name: "",
+          phone: "",
+          relationship: "",
+        },
+        status: "active",
+      });
+
+      const populatedStudent = await Student.findById(student._id)
+        .populate("user", "name email")
+        .populate("room");
+
+      return res.status(201).json({
+        message: "Student profile created successfully",
+        data: populatedStudent,
+      });
+    }
+
+    // If student profile exists, update allowed fields
+    const allowedFields = ["phone", "emergencyContact"];
+    const updateData = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
+    const updatedStudent = await Student.findByIdAndUpdate(
+      student._id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
       .populate("user", "name email")
       .populate("room");
 
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    res.json(student);
+    res.json({
+      message: "Student profile updated successfully",
+      data: updatedStudent,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

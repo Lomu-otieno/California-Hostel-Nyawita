@@ -17,7 +17,7 @@ const canStudentReview = async (req, res, next) => {
       _id: booking,
       student: student,
       room: room,
-      status: "checked-out", // Only allow reviews for completed stays
+      status: "checked-out",
     });
 
     if (!existingBooking) {
@@ -46,9 +46,6 @@ const canStudentReview = async (req, res, next) => {
   }
 };
 
-// @desc    Create a review
-// @route   POST /api/reviews
-// @access  Private (Student)
 router.post("/", canStudentReview, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();

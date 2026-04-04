@@ -1,20 +1,19 @@
 import mongoose from "mongoose";
 
-const connectDB = async () => {
+let isConnected = false;
+
+export const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
+
   try {
-    const conn = await mongoose.connect(
-      process.env.MONGODB_URI || "mongodb://localhost:27017/rentalDB",
-      {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      }
-    );
-    console.log(`Database connected: ${conn.connection.host}`);
-    return conn;
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+
+    isConnected = true;
+    console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.log("Error connecting to db:", error.message);
-    process.exit(1);
+    console.error("Error connecting to DB:", error);
+    throw error;
   }
 };
-
-export { connectDB };

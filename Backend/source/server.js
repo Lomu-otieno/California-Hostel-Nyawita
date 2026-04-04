@@ -9,7 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+  }),
+);
 app.use(express.json());
 
 // Import routes
@@ -45,15 +49,22 @@ app.use((req, res) => {
 });
 
 // Start server after DB connection
-const startServer = async () => {
-  try {
+let isConnected = false;
+
+const connectDatabase = async () => {
+  if (!isConnected) {
     await connectDB();
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error);
+    isConnected = true;
   }
 };
+
+// Run DB connection on every request (safe for serverless)
+app.use(async (req, res, next) => {
+  await connectDatabase();
+  next();
+});
+
+// Export app (VERY IMPORTANT for Vercel)
+export default app;
 
 startServer();

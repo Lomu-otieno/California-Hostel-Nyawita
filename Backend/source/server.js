@@ -10,6 +10,10 @@ const app = express();
 // Middleware
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+app.use(async (req, res, next) => {
+  await connectDatabase();
+  next();
+});
 
 // Import routes
 import authRoute from "./routes/auth.js";
@@ -49,10 +53,6 @@ const connectDatabase = async () => {
     isConnected = true;
   }
 };
-app.use(async (req, res, next) => {
-  await connectDatabase();
-  next();
-});
 
 // Export app for Vercel
 export default app;

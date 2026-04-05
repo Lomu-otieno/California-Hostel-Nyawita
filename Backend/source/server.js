@@ -31,7 +31,9 @@ app.use("/api/reviews", reviewRoutes);
 
 // Basic route
 app.get("/", (req, res) => {
-  res.json({ message: "California-Hostel-Nyawita Management API is running!" });
+  res.json({
+    message: "California-Hostel-Nyawita Management API is up and running🥹!",
+  });
 });
 
 // Error handling middleware

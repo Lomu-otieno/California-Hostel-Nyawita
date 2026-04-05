@@ -6,14 +6,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(
-  cors({
-    origin: "*",
-  }),
-);
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // Import routes
@@ -22,7 +17,6 @@ import bookingRoutes from "./routes/bookings.js";
 import studentRoutes from "./routes/students.js";
 import roomRoutes from "./routes/rooms.js";
 import reviewRoutes from "./routes/review.js";
-// import paymentsRoute from "./routes/payments.js";
 
 // Use routes
 app.use("/api/auth", authRoute);
@@ -30,7 +24,6 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/reviews", reviewRoutes);
-// app.use("/api/payments", paymentsRoute);
 
 // Basic route
 app.get("/", (req, res) => {
@@ -48,23 +41,18 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Start server after DB connection
+// Connect DB for serverless (Vercel)
 let isConnected = false;
-
 const connectDatabase = async () => {
   if (!isConnected) {
     await connectDB();
     isConnected = true;
   }
 };
-
-// Run DB connection on every request (safe for serverless)
 app.use(async (req, res, next) => {
   await connectDatabase();
   next();
 });
 
-// Export app (VERY IMPORTANT for Vercel)
+// Export app for Vercel
 export default app;
-
-startServer();
